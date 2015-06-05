@@ -3,6 +3,7 @@ Question 1
 
 Which is higher?
 
-A. The Eiffel tower.
+A. The Empire State building.
 
-B. The Empire State building.
+B. The Eiffel tower.
+
