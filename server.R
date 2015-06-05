@@ -19,6 +19,11 @@ shinyServer(function(input, output, session) {
 
   colorFunc <- function(x, alpha=1) {
     cf <- colorRamp(c("red", "grey80", "blue"), space="Lab")
+    rgb(t(col2rgb(ifelse(x < 0.5, "red", "blue"))), alpha=alpha*255, maxColorValue=255)
+  }
+
+  colorFunc2 <- function(x, alpha=1) {
+    cf <- colorRamp(c("red", "grey80", "blue"), space="Lab")
     rgb(cf(x), alpha=alpha*255, maxColorValue=255)
   }
 
@@ -81,14 +86,22 @@ shinyServer(function(input, output, session) {
       # 2 plots, one for your answer, one for histogram of previous answers
       par(mfrow=c(1,2))
 
-      hist(v$scores[,v$question_num], xlim=c(-100,100), main="Your answer compared with others", col="grey70", border=NA, xlab="")
-      abline(v=input$answer, col="red", lwd=2)
+      breaks <- seq(-100,100,by=10)
+      cols <- colorFunc2((breaks[-1] - 5 + 100)/200, 1)
+      if (!answers[v$question_num])
+        cols <- rev(cols)
+      hist(v$scores[,v$question_num], breaks=breaks, xlim=c(-100,100), main="Your answer compared with others", col=cols, border=NA, xlab="")
+      abline(v=input$answer, col="black", lwd=2)
 
-      hist(score(v$scores[,v$question_num], answers[v$question_num]), xlim=c(0, 1), main="Your score compared with others", col="grey70", border=NA, xlab="")
-      abline(v=score(input$answer, answers[v$question_num]), col="red", lwd=2)
+      by <- 0.05
+      breaks <- seq(0,1,by=by)
+      cols = colorFunc2(1 - sqrt(1-breaks[-1]+by/2),1)
+      hist(score(v$scores[,v$question_num], answers[v$question_num]), breaks=breaks, xlim=c(0, 1), main="Your score compared with others", col=cols, border=NA, xlab="")
+      abline(v=score(input$answer, answers[v$question_num]), col="black", lwd=2)
 
     } else {
-      plot(NULL, xlab="", ylab="", xlim=c(0,100), ylim=c(0,100), main="", xaxt="n", yaxt="n")
+      par(mai=rep(0.1,4))
+      plot(NULL, xlab="", ylab="", xlim=c(0,100), ylim=c(0,100), main="", xaxt="n", yaxt="n", xaxs="i", yaxs="i")
       rect(0, 0, (input$answer+100)/2, 100, col=colorFunc((input$answer+100)/200, 0.5), border=NA)
       rect(0, 0, 100, (input$answer+100)/2, col=colorFunc((input$answer+100)/200, 0.5), border=NA)
       rect(0, (input$answer+100)/2, 100, 100, col=colorFunc(1-(input$answer+100)/200, 0.5), border=NA)
