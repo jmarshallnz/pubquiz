@@ -3,50 +3,50 @@ library(shinyjs)
 library(markdown)
 
 saved_scores <- read.csv("scores.csv") # we'll update this as we go...
-answers <- read.table("answers.txt", sep=" ") == "B"
-num_questions <- min(2, length(answers))
+
+questions <- read.csv("questions.csv", stringsAsFactors=FALSE)
+num_questions <- nrow(questions)
+num_rounds    <- 2
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output, session) {
 
-  # Expression that generates a histogram. The expression is
-  # wrapped in a call to renderPlot to indicate that:
-  #
-  #  1) It is "reactive" and therefore should re-execute automatically
-  #     when inputs change
-  #  2) Its output type is a plot
-  cat(isolate(names(input)), "\n")
-
-  colorFunc <- function(x, alpha=1) {
-    cf <- colorRamp(c("red", "grey80", "blue"), space="Lab")
-    rgb(t(col2rgb(ifelse(x < 0.5, "red", "blue"))), alpha=alpha*255, maxColorValue=255)
-  }
-
-  colorFunc2 <- function(x, alpha=1) {
-    cf <- colorRamp(c("red", "grey80", "blue"), space="Lab")
-    rgb(cf(x), alpha=alpha*255, maxColorValue=255)
-  }
-
-  v <- reactiveValues(question_num = 1, show_answer = 0, show_summary = FALSE, scores = saved_scores)
+  v <- reactiveValues(round = 1,
+                      question_num = 1,
+                      show_answer = 0,
+                      show_summary = FALSE,
+                      scores = saved_scores,
+                      order = sample(1:num_questions,replace=FALSE),
+                      answers = sample(0:1,num_questions,replace=TRUE))
 
   observeEvent(input$question_num, {
     num <- input$question_num %% (num_questions*2 + 1)
     v$show_summary <- (num == num_questions*2)
+    v$round        <- (num >= num_questions) + 1
     v$question_num <- num %/% 2 + 1
     v$show_answer  <- num %% 2
-    cat("Observed a question_num event:", isolate(input$question_num), "show_answer:", isolate(v$show_answer), "question_num:", isolate(v$question_num), "\n")
+    if (v$show_summary) {
+      # re-randomise the questions and answers
+      v$order   <- sample(1:num_questions,replace=FALSE)
+      v$answers <- sample(0:1,num_questions,replace=TRUE)
+    }
     if (v$show_answer) {
       # save the user answer
       if (v$question_num == 1) {
         v$scores <- rbind(v$scores, rep(NA, num_questions))
       }
-      v$scores[nrow(v$scores),v$question_num] <- input$answer
+      score <- input$answer*2-100
+      if (v$answers[v$question_num] == 0)
+        score <- -score
+      v$scores[nrow(v$scores),v$order[v$question_num]] <- score
       # save results to disk for posterity
       if (v$question_num == num_questions) {
         write.csv(v$scores, "scores.csv", row.names=F)
       }
+    } else {
+      # reset the slider
+      shinyjs::reset("answer")
     }
-    # TODO: Add a summary plot
   })
 
   # toggle the slider state
@@ -65,58 +65,138 @@ shinyServer(function(input, output, session) {
         "Submit Answer"
       }
     }
-    cat(isolate(get_next_text(v)))
     shinyjs::text("question_num", get_next_text(v))
   })
 
-  # TODO: Save the scores in case we need to re-run it after each game cycle
+  colorFunc2 <- function(x, alpha=1) {
+    cf <- colorRamp(c("red", "grey80", "blue"), space="Lab")
+    rgb(t(col2rgb(ifelse(x <= 0.5, "red", "blue"))), alpha=alpha*255, maxColorValue=255)
+#   rgb(cf(x), alpha=alpha*255, maxColorValue=255)
+  }
 
-  score <- function(x, answer) {
-    1-(answer-(x+100)/200)^2
+  colorFunc3 <- function(x, alpha=1) {
+    cf <- colorRamp(c("red", "blue"), space="Lab")
+    rgb(cf(x), alpha=alpha*255, maxColorValue=255)
+  }
+
+  colorFunc <- function(x, alpha=1) {
+    y <- 1/(1 + exp(-250*(x-0.5)))
+    colorFunc3(y, alpha)
+  }
+
+  colorFunc4 <- function(x, alpha=1) {
+    cf <- colorRamp(c("red", "grey80", "blue"), space="Lab")
+    y <- 1/(1 + exp(-250*(x-0.5)))
+    rgb(cf(y), alpha=alpha*255, maxColorValue=255)
+  }
+
+  colorFunc5 <- function(x, alpha=1) {
+    cf <- colorRamp(c("red", "grey80", "blue"), space="Lab")
+    rgb(cf(x), alpha=alpha*255, maxColorValue=255)
+  }
+
+  score <- function(x, round = 2) {
+    if (round == 1) {
+      (x+100)/200
+    } else {
+      1-(1-(x+100)/200)^2
+    }
   }
 
   output$score_plot <- renderPlot({
     if (v$show_summary) {
 
-      totals <- apply(v$scores, 1, function(x) { sum(score(x, answers)) })
-      hist(totals, xlim=c(0, num_questions), main="Total score compared with others", col="grey70", border=NA, xlab="")
-      abline(v=totals[length(totals)], col="red", lwd=2)
+      totals <- apply(v$scores, 1, function(x) { sum(score(x)) })
+      breaks <- seq(0,1,length.out=16)
+      cols = colorFunc5(1 - sqrt(1-breaks[-1]),1)
+      hist(totals, xlim=c(0, num_questions), breaks=breaks*num_questions,
+           main="Total score compared with others", col=cols, border=NA, xlab="")
+      abline(v=totals[length(totals)], col="black", lwd=2)
 
     } else if (v$show_answer == 1) {
-      # 2 plots, one for your answer, one for histogram of previous answers
-      par(mfrow=c(1,2))
 
-      breaks <- seq(-100,100,by=10)
-      cols <- colorFunc2((breaks[-1] - 5 + 100)/200, 1)
-      if (!answers[v$question_num])
-        cols <- rev(cols)
-      hist(v$scores[,v$question_num], breaks=breaks, xlim=c(-100,100), main="Your answer compared with others", col=cols, border=NA, xlab="")
-      abline(v=input$answer, col="black", lwd=2)
+      breaks <- seq(0,1,length.out=16)
+      if (v$round == 1) {
+        cols = colorFunc5(breaks[-1],1)
+      } else {
+        cols = colorFunc5(1 - sqrt(1-breaks[-1]),1)
+      }
+      sc <- v$scores[,v$order[v$question_num]]
 
-      by <- 0.05
-      breaks <- seq(0,1,by=by)
-      cols = colorFunc2(1 - sqrt(1-breaks[-1]+by/2),1)
-      hist(score(v$scores[,v$question_num], answers[v$question_num]), breaks=breaks, xlim=c(0, 1), main="Your score compared with others", col=cols, border=NA, xlab="")
-      abline(v=score(input$answer, answers[v$question_num]), col="black", lwd=2)
+      hist(score(sc, v$round), breaks=breaks, xlim=c(0, 1),
+           main="Your score compared with others", col=cols, border=NA, xlab="")
+      abline(v=score(sc[length(sc)], v$round), col="black", lwd=2)
 
     } else {
+
       par(mai=rep(0.1,4))
-      plot(NULL, xlab="", ylab="", xlim=c(0,100), ylim=c(0,100), main="", xaxt="n", yaxt="n", xaxs="i", yaxs="i")
-      rect(0, 0, (input$answer+100)/2, 100, col=colorFunc((input$answer+100)/200, 0.5), border=NA)
-      rect(0, 0, 100, (input$answer+100)/2, col=colorFunc((input$answer+100)/200, 0.5), border=NA)
-      rect(0, (input$answer+100)/2, 100, 100, col=colorFunc(1-(input$answer+100)/200, 0.5), border=NA)
-      rect((input$answer+100)/2, 0, 100, 100, col=colorFunc(1-(input$answer+100)/200, 0.5), border=NA)
-      legend("topleft", legend=c("Penalty if correct", "Penalty if incorrect"), fill=c("red", "blue"))
+      plot(NULL, xlab="", ylab="", xlim=c(0,1), ylim=c(0,1), main="", xaxt="n", yaxt="n", xaxs="i", yaxs="i")
+      w <- input$answer/100
+
+      # background colouring
+      x <- seq(0,1,by=0.01)
+      y1 <- 1-x^2
+      y2 <- 1-(1-x)^2
+      polygon(c(0,0,0.5,1,1),c(0.5,1,0.5,1,0.5), col=colorFunc(1,0.2), border=NA)
+      polygon(c(0,0,0.5,1,1),c(0.5,0,0.5,0,0.5), col=colorFunc(0,0.2), border=NA)
+
+      if (v$round == 2) {
+        # grey bars for uncertainty stuff
+        polygon(c(0,x,1),c(1,y1,0), col="#00000028", border=NA)
+        polygon(c(0,x,1),c(0,y2,0), col="#00000028", border=NA)
+
+        wid <- 0.005
+        rect(w-wid,1-w,w+wid,1-w^2, col="grey60")
+        rect(w-wid,w,w+wid,1-(1-w)^2, col="grey60")
+
+        lines(x, y1, lwd=2)
+        lines(x, y2, lwd=2)
+      }
+
+      # main lines
+      lines(c(0,0.5,1),c(0,0.5,0),lwd=2, col=colorFunc(0,1))
+      lines(c(1,0.5,0),c(1,0.5,1),lwd=2, col=colorFunc(1,1))
+      lines(c(0,1),c(0.5,0.5),lwd=1)
+
+      # points
+      if (v$round == 2) {
+        points(w,1-w,bg="grey60",pch=21,cex=2)
+        points(w,w,bg="grey60",pch=21,cex=2)
+        points(w,1-w^2,bg=colorFunc4(1-w,1),pch=21,cex=4)
+        points(w,1-(1-w)^2,bg=colorFunc4(w,1),pch=21,cex=4)
+        legend("bottom", legend=c("Score if correct", "Score if incorrect", "Uncertainty bonus"), fill=c("blue", "red", "grey60"), bty="n")
+      } else {
+        points(w,1-w,bg=colorFunc4(1-w,1),pch=21,cex=4)
+        points(w,w,bg=colorFunc4(w,1),pch=21,cex=4)
+        legend("bottom", legend=c("Score if correct", "Score if incorrect"), fill=c("blue", "red"), bty="n")
+      }
     }
   })
 
   output$question <- renderUI({
+    question <- questions[v$order[v$question_num],]
     if (v$show_summary) {
       includeMarkdown("summary.md")
     } else if (v$show_answer) {
-      includeMarkdown(paste0("answer", v$question_num, ".md"))
+      score <- v$scores[nrow(v$scores), v$order[v$question_num]]
+      div(
+        includeMarkdown(paste0("round",v$round,".md")),
+        h2(paste("Question", v$question_num)),
+        p(strong(ifelse(score > 0, "Right!", ifelse(score == 0, "Hedging your bets, huh?", 
+"Wrong!")))),
+        p(paste("A:", question[2+v$answers[v$question_num]]),
+          strong(question[4+v$answers[v$question_num]])),
+        p(paste("B:", question[2+1-v$answers[v$question_num]]),
+          strong(question[4+1-v$answers[v$question_num]]))
+      )
     } else {
-      includeMarkdown(paste0("question", v$question_num, ".md"))
+      div(
+        includeMarkdown(paste0("round",v$round,".md")),
+        h2(paste("Question", v$question_num)),
+        p(question[1]),
+        p(paste("A:", question[2+v$answers[v$question_num]])),
+        p(paste("B:", question[2+1-v$answers[v$question_num]]))
+      )
     }
   })
 })
