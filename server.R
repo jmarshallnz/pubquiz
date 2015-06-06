@@ -137,39 +137,35 @@ shinyServer(function(input, output, session) {
       x <- seq(0,1,by=0.01)
       y1 <- 1-x^2
       y2 <- 1-(1-x)^2
-      polygon(c(0,0,0.5,1,1),c(0.5,1,0.5,1,0.5), col=colorFunc(1,0.2), border=NA)
-      polygon(c(0,0,0.5,1,1),c(0.5,0,0.5,0,0.5), col=colorFunc(0,0.2), border=NA)
 
-      if (v$round == 2) {
-        # grey bars for uncertainty stuff
-        polygon(c(0,x,1),c(1,y1,0), col="#00000028", border=NA)
-        polygon(c(0,x,1),c(0,y2,0), col="#00000028", border=NA)
+      if (v$round == 1) {
+        # background
+        polygon(c(0,0,0.5,1,1),c(0.5,1,0.5,1,0.5), col=colorFunc(1,0.2), border=NA)
+        polygon(c(0,0,0.5,1,1),c(0.5,0,0.5,0,0.5), col=colorFunc(0,0.2), border=NA)
 
-        wid <- 0.005
-        rect(w-wid,1-w,w+wid,1-w^2, col="grey60")
-        rect(w-wid,w,w+wid,1-(1-w)^2, col="grey60")
+        lines(c(0,0.5,1),c(0,0.5,0),lwd=2, col=colorFunc(0,1))
+        lines(c(1,0.5,0),c(1,0.5,1),lwd=2, col=colorFunc(1,1))
+        lines(c(0,1),c(0.5,0.5),lwd=1)
 
-        lines(x, y1, lwd=2)
-        lines(x, y2, lwd=2)
-      }
-
-      # main lines
-      lines(c(0,0.5,1),c(0,0.5,0),lwd=2, col=colorFunc(0,1))
-      lines(c(1,0.5,0),c(1,0.5,1),lwd=2, col=colorFunc(1,1))
-      lines(c(0,1),c(0.5,0.5),lwd=1)
-
-      # points
-      if (v$round == 2) {
-        points(w,1-w,bg="grey60",pch=21,cex=2)
-        points(w,w,bg="grey60",pch=21,cex=2)
-        points(w,1-w^2,bg=colorFunc4(1-w,1),pch=21,cex=4)
-        points(w,1-(1-w)^2,bg=colorFunc4(w,1),pch=21,cex=4)
-        legend("bottom", legend=c("Score if correct", "Score if incorrect", "Uncertainty bonus"), fill=c("blue", "red", "grey60"), bty="n")
-      } else {
         points(w,1-w,bg=colorFunc4(1-w,1),pch=21,cex=4)
         points(w,w,bg=colorFunc4(w,1),pch=21,cex=4)
-        legend("bottom", legend=c("Score if correct", "Score if incorrect"), fill=c("blue", "red"), bty="n")
+      } else {
+        # background
+        y3 <- (y1+y2)/2
+        polygon(c(0,x[1:51],x[51:1],0),c(0.5,y1[1:51],y3[51:1],0.5), col=colorFunc(1,0.2), border=NA)
+        polygon(c(0,x[1:51],x[51:1],0),c(0.5,y2[1:51],y3[51:1],0.5), col=colorFunc(0,0.2), border=NA)
+        polygon(c(1,x[101:51],x[51:101],1),c(0.5,y1[101:51],y3[51:101],0.5), col=colorFunc(0,0.2), border=NA)
+        polygon(c(1,x[101:51],x[51:101],1),c(0.5,y2[101:51],y3[51:101],0.5), col=colorFunc(1,0.2), border=NA)
+
+        lines(x, pmax(y1,y2), lwd=2, col=colorFunc(1,1))
+        lines(x, pmin(y1,y2), lwd=2, col=colorFunc(0,1))
+        lines(x, y3, lwd=1)
+
+        points(w,1-w^2,bg=colorFunc4(1-w,1),pch=21,cex=4)
+        points(w,1-(1-w)^2,bg=colorFunc4(w,1),pch=21,cex=4)
       }
+
+      legend("bottom", legend=c("Score if correct", "Score if incorrect"), fill=c("blue", "red"), bty="n")
     }
   })
 
