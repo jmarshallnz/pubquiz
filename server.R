@@ -8,6 +8,9 @@ questions <- read.csv("questions.csv", stringsAsFactors=FALSE)
 num_questions <- nrow(questions)
 num_rounds    <- 2
 
+while (ncol(saved_scores) < num_questions)
+  saved_scores <- cbind(saved_scores, 0)
+
 # Define server logic required to draw a histogram
 shinyServer(function(input, output, session) {
 
