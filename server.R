@@ -70,7 +70,7 @@ shinyServer(function(input, output, session) {
         # write scores into the database
           cols <- paste(c(sprintf("q%02d", 1:num_questions),"first_round"), collapse=",")
           vals <- paste(v$scores, collapse=",")
-          sql  <- paste("INSERT INTO SCORES(",cols,") VALUES(",vals,");")
+          sql  <- paste("INSERT INTO scores(",cols,") VALUES(",vals,");")
           cat("running: ", sql, "\n")
         if (mysql) {
           dbSendQuery(conn, sql)
