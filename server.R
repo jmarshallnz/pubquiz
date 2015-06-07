@@ -1,30 +1,17 @@
 library(shiny)
 library(shinyjs)
 library(markdown)
-library(RMySQL)
+
+source("pubquiz_db.R")
 
 # read in questions
 questions <- read.csv("questions.csv", stringsAsFactors=FALSE)
 num_questions <- nrow(questions)
 num_rounds    <- 2
 
-# fetch the database if possible
-mysql <- FALSE
-saved_scores <- NULL
-
-try({
-  conn <- dbConnect(RMySQL::MySQL(), user='pubquiz', password='pubquiz', host='localhost', dbname='pubquiz')
-
-  # create score table if not already there
-  fields <- paste(c("score_id INT", sprintf("q%02d INT", 1:num_questions), "first_round INT"), collapse=",")
-
-  dbSendQuery(conn, paste("CREATE TABLE IF NOT EXISTS scores (", fields, ");"))
-
-  # retrieve saved scores
-  saved_scores <- fetch(dbSendQuery(conn, "SELECT * FROM scores"))[,-1]
-
-  mysql <- TRUE
-}, silent=TRUE)
+if (!create_database(num_questions)) {
+  cat("Unable to create database\n", file=stderr());
+}
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output, session) {
@@ -33,7 +20,7 @@ shinyServer(function(input, output, session) {
                       question_num = 1,
                       show_answer = 0,
                       show_summary = FALSE,
-                      scores = saved_scores,
+                      scores = read_scores(),
                       round_order    = sample(1:2,2,replace=FALSE),
                       question_order = c(sample(1:(num_questions/2),replace=FALSE),sample(1:(num_questions/2),replace=FALSE)),
                       answers = sample(0:1,num_questions,replace=TRUE))
@@ -68,12 +55,8 @@ shinyServer(function(input, output, session) {
       if (v$question_num == num_questions) {
 
         # write scores into the database
-          cols <- paste(c(sprintf("q%02d", 1:num_questions),"first_round"), collapse=",")
-          vals <- paste(v$scores, collapse=",")
-          sql  <- paste("INSERT INTO scores(",cols,") VALUES(",vals,");")
-          cat("running: ", sql, "\n")
-        if (mysql) {
-          dbSendQuery(conn, sql)
+        if (!write_score(v$scores[nrow(v$scores),])) {
+          cat("Unable to write score to database\n", file=stderr())
         }
 
       }
@@ -235,8 +218,3 @@ shinyServer(function(input, output, session) {
     }
   })
 })
-
-if (mysql) {
-  dbDisconnect(conn)
-}
-
