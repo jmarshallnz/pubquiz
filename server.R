@@ -3,17 +3,28 @@ library(shinyjs)
 library(markdown)
 library(RMySQL)
 
-# fetch the database if possible
-
-conn <- dbConnect(RMySQL::MySQL(), user='pubquiz', password='pubquiz', host='localhost', dbname='pubquiz')
-
-dbDisconnect(conn)
-
-saved_scores <- read.csv("scores.csv") # we'll update this as we go...
-
+# read in questions
 questions <- read.csv("questions.csv", stringsAsFactors=FALSE)
 num_questions <- nrow(questions)
 num_rounds    <- 2
+
+# fetch the database if possible
+mysql <- FALSE
+saved_scores <- NULL
+
+try({
+  conn <- dbConnect(RMySQL::MySQL(), user='pubquiz', password='pubquiz', host='localhost', dbname='pubquiz')
+
+  # create score table if not already there
+  fields <- paste(c("score_id INT", sprintf("q%02d INT", 1:num_questions), "first_round INT"), collapse=",")
+
+  dbSendQuery(conn, paste("CREATE TABLE IF NOT EXISTS scores (", fields, ");"))
+
+  # retrieve saved scores
+  saved_scores <- fetch(dbSendQuery(conn, "SELECT * FROM scores"))[,-1]
+
+  mysql <- TRUE
+}, silent=TRUE)
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output, session) {
@@ -23,8 +34,13 @@ shinyServer(function(input, output, session) {
                       show_answer = 0,
                       show_summary = FALSE,
                       scores = saved_scores,
-                      order = sample(1:num_questions,replace=FALSE),
+                      round_order    = sample(1:2,2,replace=FALSE),
+                      question_order = c(sample(1:(num_questions/2),replace=FALSE),sample(1:(num_questions/2),replace=FALSE)),
                       answers = sample(0:1,num_questions,replace=TRUE))
+
+  current_question() {
+    v$question_order[v$question_num] + (v$round_order[v$round]-1)*num_questions/2
+  }
 
   observeEvent(input$question_num, {
     num <- input$question_num %% (num_questions*2 + 1)
@@ -34,21 +50,30 @@ shinyServer(function(input, output, session) {
     v$show_answer  <- num %% 2
     if (v$show_summary) {
       # re-randomise the questions and answers
-      v$order   <- sample(1:num_questions,replace=FALSE)
-      v$answers <- sample(0:1,num_questions,replace=TRUE)
+      v$round_order    <- sample(1:2,2,replace=FALSE)
+      v$question_order <- c(sample(1:(num_questions/2),replace=FALSE),sample(1:(num_questions/2),replace=FALSE))
+      v$answers        <- sample(0:1,num_questions,replace=TRUE)
     }
     if (v$show_answer) {
       # save the user answer
       if (v$question_num == 1) {
-        v$scores <- rbind(v$scores, rep(NA, num_questions))
+        v$scores <- rbind(v$scores, rep(NA, num_questions+1))
+        v$scores[nrow(v$scores), num_questions+1] <- v$round_order[1]
       }
       score <- input$answer*2-100
       if (v$answers[v$question_num] == 0)
         score <- -score
-      v$scores[nrow(v$scores),v$order[v$question_num]] <- score
+      v$scores[nrow(v$scores),current_question()] <- score
       # save results to disk for posterity
       if (v$question_num == num_questions) {
-        write.csv(v$scores, "scores.csv", row.names=F)
+
+        # write scores into the database
+        if (mysql) {
+          cols <- paste(c(sprintf("q%02d", 1:num_questions),"first_round"), collapse=",")
+          vals <- paste(v$scores, collapse=",")
+          dbSendQuery(conn, paste("INSERT INTO SCORES(",cols,") VALUES(",vals,")"))
+        }
+
       }
     } else {
       # reset the slider
@@ -113,7 +138,7 @@ shinyServer(function(input, output, session) {
   output$score_plot <- renderPlot({
     if (v$show_summary) {
 
-      totals <- apply(v$scores, 1, function(x) { sum(score(x)) })
+      totals <- apply(v$scores[,1:num_questions], 1, function(x) { sum(score(x)) })
       breaks <- seq(0,1,length.out=16)
       cols = colorFunc5(1 - sqrt(1-breaks[-1]),1)
       hist(totals, xlim=c(0, num_questions), breaks=breaks*num_questions,
@@ -128,7 +153,7 @@ shinyServer(function(input, output, session) {
       } else {
         cols = colorFunc5(1 - sqrt(1-breaks[-1]),1)
       }
-      sc <- v$scores[,v$order[v$question_num]]
+      sc <- v$scores[,current_question()]
 
       hist(score(sc, v$round), breaks=breaks, xlim=c(0, 1),
            main="Your score compared with others", col=cols, border=NA, xlab="")
@@ -182,11 +207,11 @@ shinyServer(function(input, output, session) {
   }
 
   output$question <- renderUI({
-    question <- questions[v$order[v$question_num],]
+    question <- questions[current_question(),]
     if (v$show_summary) {
       includeMarkdown("summary.md")
     } else if (v$show_answer) {
-      score <- v$scores[nrow(v$scores), v$order[v$question_num]]
+      score <- v$scores[nrow(v$scores), current_question()]
       div(
         includeMarkdown(paste0("round",v$round,".md")),
         question_header(),
@@ -208,3 +233,8 @@ shinyServer(function(input, output, session) {
     }
   })
 })
+
+if (mysql) {
+  dbDisconnect(conn)
+}
+
