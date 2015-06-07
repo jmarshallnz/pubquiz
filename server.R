@@ -1,6 +1,13 @@
 library(shiny)
 library(shinyjs)
 library(markdown)
+library(RMySQL)
+
+# fetch the database if possible
+
+conn <- dbConnect(RMySQL::MySQL(), user='pubquiz', password='pubquiz', host='localhost', dbname='pubquiz')
+
+dbDisconnect(conn)
 
 saved_scores <- read.csv("scores.csv") # we'll update this as we go...
 
