@@ -38,7 +38,7 @@ shinyServer(function(input, output, session) {
                       question_order = c(sample(1:(num_questions/2),replace=FALSE),sample(1:(num_questions/2),replace=FALSE)),
                       answers = sample(0:1,num_questions,replace=TRUE))
 
-  current_question() {
+  current_question <- function() {
     v$question_order[v$question_num] + (v$round_order[v$round]-1)*num_questions/2
   }
 
@@ -138,7 +138,7 @@ shinyServer(function(input, output, session) {
   output$score_plot <- renderPlot({
     if (v$show_summary) {
 
-      totals <- apply(v$scores[,1:num_questions], 1, function(x) { sum(score(x)) })
+      totals <- apply(v$scores[,1:num_questions, drop=FALSE], 1, function(x) { sum(score(x)) })
       breaks <- seq(0,1,length.out=16)
       cols = colorFunc5(1 - sqrt(1-breaks[-1]),1)
       hist(totals, xlim=c(0, num_questions), breaks=breaks*num_questions,
