@@ -8,9 +8,6 @@ questions <- read.csv("questions.csv", stringsAsFactors=FALSE)
 num_questions <- nrow(questions)
 num_rounds    <- 2
 
-while (ncol(saved_scores) < num_questions)
-  saved_scores <- cbind(saved_scores, 0)
-
 # Define server logic required to draw a histogram
 shinyServer(function(input, output, session) {
 
@@ -172,6 +169,11 @@ shinyServer(function(input, output, session) {
     }
   })
 
+  question_header <- function() {
+    h2(paste("Question", ifelse(v$round == 1, v$question_num,
+                                              v$question_num - num_questions/2)))
+  }
+
   output$question <- renderUI({
     question <- questions[v$order[v$question_num],]
     if (v$show_summary) {
@@ -180,7 +182,7 @@ shinyServer(function(input, output, session) {
       score <- v$scores[nrow(v$scores), v$order[v$question_num]]
       div(
         includeMarkdown(paste0("round",v$round,".md")),
-        h2(paste("Question", v$question_num)),
+        question_header(),
         p(strong(ifelse(score > 0, "Right!", ifelse(score == 0, "Hedging your bets, huh?", 
 "Wrong!")))),
         p(paste("A:", question[2+v$answers[v$question_num]]),
@@ -191,7 +193,7 @@ shinyServer(function(input, output, session) {
     } else {
       div(
         includeMarkdown(paste0("round",v$round,".md")),
-        h2(paste("Question", v$question_num)),
+        question_header(),
         p(question[1]),
         p(paste("A:", question[2+v$answers[v$question_num]])),
         p(paste("B:", question[2+1-v$answers[v$question_num]]))
