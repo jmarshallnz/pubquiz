@@ -26,6 +26,8 @@ shinyServer(function(input, output, session) {
                       question_order = c(sample(1:(num_questions/2),replace=FALSE),sample(1:(num_questions/2),replace=FALSE)),
                       answers = sample(0:1,num_questions,replace=TRUE))
 
+  click <- reactiveValues(question_num = 0)
+
   current_question <- function() {
     v$question_order[v$question_num] + (v$round_order[v$round]-1)*num_questions/2
   }
@@ -35,7 +37,11 @@ shinyServer(function(input, output, session) {
   }
 
   observeEvent(input$question_num, {
-    num <- input$question_num %% (num_questions*2 + 1)
+    click$question_num <- click$question_num + 1; #input$question_num
+  })
+
+  observeEvent(click$question_num, {
+    num <- click$question_num %% (num_questions*2 + 1)
     v$show_summary <- (num == num_questions*2)
     v$round        <- (num >= num_questions) + 1
     v$question_num <- num %/% 2 + 1
@@ -67,13 +73,34 @@ shinyServer(function(input, output, session) {
       }
     } else {
       # reset the slider
-      shinyjs::reset("answer")
+#      shinyjs::reset("answer")
     }
   })
 
   observeEvent(input$score_click, {
     cat("click! x=", isolate(input$score_click$x), "y=", isolate(input$score_click$y), "\n")
+
+# record answer and go to the next one straight away
     updateSliderInput(session, "answer", value=round(input$score_click$x*20))
+    click$question_num <- click$question_num + 1
+
+#    click$last <- input$score_click$x
+  })
+
+  observeEvent(input$score_brush, {
+    cat("brush! xmin=", isolate(names(input$score_brush)), "\n")
+#"xmax=", 
+#isolate(input$score_brush$xmax), "\n")
+#    cat("brush! names=", isolate(names(input$score_brush)), "\n")
+#    cat("brush! clicknames=", isolate(names(input$score_click)), "\n")
+ #   if (length(input$score_click) > 0) {
+#    if (input$score_brush$xmin == click$last) { #input$score_click$x) {
+#      x <- input$score_brush$xmax
+#    } else {
+#      x <- input$score_brush$xmin
+#    }
+  updateSliderInput(session, "answer", value=round(input$score_brush$x*20))
+  #  }
   })
 
   # toggle the slider state

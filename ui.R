@@ -33,7 +33,12 @@ shinyUI(fluidPage(
     column(width=5,
 #      fixedPanel(
         wellPanel(
-        plotOutput("score_plot", height="400px", clickId="score_click"),
+        plotOutput("score_plot", height="400px", click = clickOpts(id="score_click"),
+hover = hoverOpts(
+          id = "score_brush",
+#          opacity = 0,
+          delayType = "throttle"
+        )),
         div(class="span6", style="text-align:center",
             my_slider()),
         div(class="span6", style="text-align:center",
