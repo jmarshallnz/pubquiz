@@ -31,12 +31,15 @@ shinyUI(fluidPage(
       )
     ),
     column(width=5,
-      plotOutput("score_plot", height="400px"),
-      wellPanel(
-        my_slider(),
+      fixedPanel(
+        wellPanel(
+        imageOutput("score_plot", width="500px", height="400px"),
         div(class="span6", style="text-align:center",
-            actionButton("question_num", "Next question", style="text-align:right")
-        )
+            my_slider()),
+        div(class="span6", style="text-align:center",
+            actionButton("question_num", "Next question"))
+        ),
+        width = "540px"
       )
     )
   )

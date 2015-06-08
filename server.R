@@ -3,6 +3,7 @@ library(shinyjs)
 library(markdown)
 
 source("pubquiz_db.R")
+#source("score_plot.R")
 
 # read in questions
 questions <- read.csv("questions.csv", stringsAsFactors=FALSE)
@@ -89,28 +90,6 @@ shinyServer(function(input, output, session) {
     shinyjs::text("question_num", get_next_text(v))
   })
 
-  colorFunc2 <- function(x, alpha=1) {
-    cf <- colorRamp(c("red", "grey80", "blue"), space="Lab")
-    rgb(t(col2rgb(ifelse(x <= 0.5, "red", "blue"))), alpha=alpha*255, maxColorValue=255)
-#   rgb(cf(x), alpha=alpha*255, maxColorValue=255)
-  }
-
-  colorFunc3 <- function(x, alpha=1) {
-    cf <- colorRamp(c("red", "blue"), space="Lab")
-    rgb(cf(x), alpha=alpha*255, maxColorValue=255)
-  }
-
-  colorFunc <- function(x, alpha=1) {
-    y <- 1/(1 + exp(-250*(x-0.5)))
-    colorFunc3(y, alpha)
-  }
-
-  colorFunc4 <- function(x, alpha=1) {
-    cf <- colorRamp(c("red", "grey80", "blue"), space="Lab")
-    y <- 1/(1 + exp(-250*(x-0.5)))
-    rgb(cf(y), alpha=alpha*255, maxColorValue=255)
-  }
-
   colorFunc5 <- function(x, alpha=1) {
     cf <- colorRamp(c("red", "grey80", "blue"), space="Lab")
     rgb(cf(x), alpha=alpha*255, maxColorValue=255)
@@ -124,16 +103,28 @@ shinyServer(function(input, output, session) {
     }
   }
 
-  output$score_plot <- renderPlot({
+  question_header <- function() {
+    h2(paste("Question", ifelse(v$round == 1, v$question_num,
+                                              v$question_num - num_questions/2)))
+  }
+
+  output$score_plot <- renderImage({
     if (v$show_summary) {
 
       totals <- apply(v$scores[,1:num_questions, drop=FALSE], 1, function(x) { sum(score(x)) })
       breaks <- seq(0,1,length.out=16)
       cols = colorFunc5(1 - sqrt(1-breaks[-1]),1)
+
+      outfile <- tempfile(fileext=".png")
+      png(outfile, bg="transparent", width=500, height=400)
       hist(totals, xlim=c(0, num_questions), breaks=breaks*num_questions,
            main="Total score compared with others", col=cols, border=NA, xlab="",xaxt="n")
       abline(v=totals[length(totals)], col="black", lwd=2)
       axis(side=1, at=seq(0,num_questions,length.out=5), labels=seq(-10,10,length.out=5)*num_questions)
+      dev.off()
+
+      list(src = outfile,
+           alt = "Summary of scores");
 
     } else if (v$show_answer == 1) {
 
@@ -145,53 +136,25 @@ shinyServer(function(input, output, session) {
       }
       sc <- v$scores[,current_question()]
 
+      outfile <- tempfile(fileext=".png")
+      png(outfile, bg="transparent", width=500, height=400)
       hist(score(sc, v$round), breaks=breaks, xlim=c(0, 1),
            main="Your score compared with others", col=cols, border=NA, xlab="", xaxt="n")
       abline(v=score(sc[length(sc)], v$round), col="black", lwd=2)
       axis(side=1, at=seq(0,1,by=0.25), labels=seq(-10,10,by=5))
+      dev.off()
+
+      list(src = outfile,
+           alt = paste("Score for", question_header()));
 
     } else {
 
-      par(mai=rep(0.1,4))
-      plot(NULL, xlab="", ylab="", xlim=c(0,1), ylim=c(0,1), main="", xaxt="n", yaxt="n", xaxs="i", yaxs="i")
+      outfile <- sprintf("round%d_%03.0f.png", v$round, transform_slider(input$answer)*100)
 
-      w <- transform_slider(input$answer)
-
-      # background colouring
-      x <- seq(0,1,by=0.01)
-      y1 <- 1-x^2
-      y2 <- 1-(1-x)^2
-
-      if (v$round == 1) {
-        # background
-        polygon(c(0,0,0.5,1,1),c(0.5,1,0.5,1,0.5), col=colorFunc(1,0.2), border=NA)
-        polygon(c(0,0,0.5,1,1),c(0.5,0,0.5,0,0.5), col=colorFunc(0,0.2), border=NA)
-
-        lines(c(0,0.5,1),c(0,0.5,0),lwd=2, col=colorFunc(0,1))
-        lines(c(1,0.5,0),c(1,0.5,1),lwd=2, col=colorFunc(1,1))
-        lines(c(0,1),c(0.5,0.5),lwd=1)
-
-        points(w,1-w,bg=colorFunc4(1-w,1),pch=21,cex=4)
-        points(w,w,bg=colorFunc4(w,1),pch=21,cex=4)
-      } else {
-        # background
-        y3 <- (y1+y2)/2
-        polygon(c(0,x[1:51],x[51:1],0),c(0.5,y1[1:51],y3[51:1],0.5), col=colorFunc(1,0.2), border=NA)
-        polygon(c(0,x[1:51],x[51:1],0),c(0.5,y2[1:51],y3[51:1],0.5), col=colorFunc(0,0.2), border=NA)
-        polygon(c(1,x[101:51],x[51:101],1),c(0.5,y1[101:51],y3[51:101],0.5), col=colorFunc(0,0.2), border=NA)
-        polygon(c(1,x[101:51],x[51:101],1),c(0.5,y2[101:51],y3[51:101],0.5), col=colorFunc(1,0.2), border=NA)
-
-        lines(x, pmax(y1,y2), lwd=2, col=colorFunc(1,1))
-        lines(x, pmin(y1,y2), lwd=2, col=colorFunc(0,1))
-        lines(x, y3, lwd=1)
-
-        points(w,1-w^2,bg=colorFunc4(1-w,1),pch=21,cex=4)
-        points(w,1-(1-w)^2,bg=colorFunc4(w,1),pch=21,cex=4)
-      }
-
-      legend("bottom", legend=c("Score if correct", "Score if incorrect"), fill=c("blue", "red"), bty="n")
+      list(src = file.path("plots", outfile),
+           alt = question_header());
     }
-  })
+  }, deleteFile = (v$show_summary || v$show_answer == 1))
 
   question_header <- function() {
     h2(paste("Question", ifelse(v$round == 1, v$question_num,
