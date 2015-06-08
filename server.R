@@ -127,8 +127,9 @@ shinyServer(function(input, output, session) {
       breaks <- seq(0,1,length.out=16)
       cols = colorFunc5(1 - sqrt(1-breaks[-1]),1)
       hist(totals, xlim=c(0, num_questions), breaks=breaks*num_questions,
-           main="Total score compared with others", col=cols, border=NA, xlab="")
+           main="Total score compared with others", col=cols, border=NA, xlab="",xaxt="n")
       abline(v=totals[length(totals)], col="black", lwd=2)
+      axis(side=1, at=seq(0,num_questions,length.out=5), labels=seq(-10,10,length.out=5)*num_questions)
 
     } else if (v$show_answer == 1) {
 
@@ -141,8 +142,9 @@ shinyServer(function(input, output, session) {
       sc <- v$scores[,current_question()]
 
       hist(score(sc, v$round), breaks=breaks, xlim=c(0, 1),
-           main="Your score compared with others", col=cols, border=NA, xlab="")
+           main="Your score compared with others", col=cols, border=NA, xlab="", xaxt="n")
       abline(v=score(sc[length(sc)], v$round), col="black", lwd=2)
+      axis(side=1, at=seq(0,1,by=0.25), labels=seq(-10,10,by=5))
 
     } else {
 
