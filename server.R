@@ -71,6 +71,11 @@ shinyServer(function(input, output, session) {
     }
   })
 
+  observeEvent(input$score_click, {
+    cat("click! x=", isolate(input$score_click$x), "y=", isolate(input$score_click$y), "\n")
+    updateSliderInput(session, "answer", value=round(input$score_click$x*20))
+  })
+
   # toggle the slider state
   observe({
     shinyjs::toggleState("answer", v$show_answer == 0 && !v$show_summary)

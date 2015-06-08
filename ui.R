@@ -33,7 +33,7 @@ shinyUI(fluidPage(
     column(width=5,
 #      fixedPanel(
         wellPanel(
-        plotOutput("score_plot", height="400px"),
+        plotOutput("score_plot", height="400px", clickId="score_click"),
         div(class="span6", style="text-align:center",
             my_slider()),
         div(class="span6", style="text-align:center",
