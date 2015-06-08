@@ -3,7 +3,7 @@ library(shinyjs)
 library(markdown)
 
 source("pubquiz_db.R")
-#source("score_plot.R")
+source("score_plot.R")
 
 # read in questions
 questions <- read.csv("questions.csv", stringsAsFactors=FALSE)
@@ -108,23 +108,23 @@ shinyServer(function(input, output, session) {
                                               v$question_num - num_questions/2)))
   }
 
-  output$score_plot <- renderImage({
+  output$score_plot <- renderPlot({
     if (v$show_summary) {
 
       totals <- apply(v$scores[,1:num_questions, drop=FALSE], 1, function(x) { sum(score(x)) })
       breaks <- seq(0,1,length.out=16)
       cols = colorFunc5(1 - sqrt(1-breaks[-1]),1)
 
-      outfile <- tempfile(fileext=".png")
-      png(outfile, bg="transparent", width=500, height=400)
+#      outfile <- tempfile(fileext=".png")
+#      png(outfile, bg="transparent", width=session$clientInfo$output_score_plot_width, height=session$clientInfo$output_score_plot_height)
       hist(totals, xlim=c(0, num_questions), breaks=breaks*num_questions,
            main="Total score compared with others", col=cols, border=NA, xlab="",xaxt="n")
       abline(v=totals[length(totals)], col="black", lwd=2)
       axis(side=1, at=seq(0,num_questions,length.out=5), labels=seq(-10,10,length.out=5)*num_questions)
-      dev.off()
+#      dev.off()
 
-      list(src = outfile,
-           alt = "Summary of scores");
+#      list(src = outfile,
+#           alt = "Summary of scores");
 
     } else if (v$show_answer == 1) {
 
@@ -136,25 +136,33 @@ shinyServer(function(input, output, session) {
       }
       sc <- v$scores[,current_question()]
 
-      outfile <- tempfile(fileext=".png")
-      png(outfile, bg="transparent", width=500, height=400)
+ #     outfile <- tempfile(fileext=".png")
+ #     png(outfile, bg="transparent", width=session$clientInfo$output_score_plot_width, height=session$clientInfo$output_score_plot_height)
       hist(score(sc, v$round), breaks=breaks, xlim=c(0, 1),
            main="Your score compared with others", col=cols, border=NA, xlab="", xaxt="n")
       abline(v=score(sc[length(sc)], v$round), col="black", lwd=2)
       axis(side=1, at=seq(0,1,by=0.25), labels=seq(-10,10,by=5))
-      dev.off()
+ #     dev.off()
 
-      list(src = outfile,
-           alt = paste("Score for", question_header()));
+ #     list(src = outfile,
+ #          alt = paste("Score for", question_header()));
 
     } else {
 
-      outfile <- sprintf("round%d_%03.0f.png", v$round, transform_slider(input$answer)*100)
+#      outfile <- sprintf("round%d_%03.0f.png", v$round, transform_slider(input$answer)*100)
 
-      list(src = file.path("plots", outfile),
-           alt = question_header());
+ #     outfile <- tempfile(fileext=".png")
+ #     cat("names",isolate(names(session$clientInfo)), "\n", file=stderr())
+ #     png(outfile, bg="transparent", width=session$clientInfo$output_score_plot_width, height=session$clientInfo$output_score_plot_height)
+
+      score_plot(transform_slider(input$answer), v$round)
+
+  #    dev.off()
+
+  #    list(src = file.path("plots", outfile),
+  #         alt = question_header());
     }
-  }, deleteFile = (v$show_summary || v$show_answer == 1))
+  }) #, deleteFile = TRUE) #(v$show_summary || v$show_answer == 1))
 
   question_header <- function() {
     h2(paste("Question", ifelse(v$round == 1, v$question_num,
