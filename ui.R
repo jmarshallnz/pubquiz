@@ -4,12 +4,12 @@ library(shinyjs)
 library(htmltools)
 
 my_slider <- function() {
-  slider_vals <- paste(c(paste0(100:51, "% A"), "50% A/B", paste0(51:100, "% B")), collapse=",")
+  slider_vals <- paste(c(paste0(seq(100,55,by=-5), "% A"), "50% A/B", paste0(seq(55,100,by=5), "% B")), collapse=",")
 
   # construct the input element
   input <- tag("input","")
   input <- tagAppendAttributes(input, class="js-range-slider", id="answer", 
-                               `data-from`="50", `data-values`= slider_vals)
+                               `data-from`="10", `data-values`= slider_vals)
   sliderTag <- div(class="form-group shiny-input-container", input)
   dep <- htmlDependency("ionrangeslider", "2.0.6", c(href = "shared/ionrangeslider"), 
             script = "js/ion.rangeSlider.min.js", stylesheet = c("css/normalize.css", 

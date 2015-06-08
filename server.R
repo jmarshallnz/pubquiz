@@ -29,6 +29,10 @@ shinyServer(function(input, output, session) {
     v$question_order[v$question_num] + (v$round_order[v$round]-1)*num_questions/2
   }
 
+  transform_slider <- function(x) {
+    x / 20
+  }
+
   observeEvent(input$question_num, {
     num <- input$question_num %% (num_questions*2 + 1)
     v$show_summary <- (num == num_questions*2)
@@ -47,7 +51,7 @@ shinyServer(function(input, output, session) {
         v$scores <- rbind(v$scores, rep(NA, num_questions+1))
         v$scores[nrow(v$scores), num_questions+1] <- v$round_order[1]
       }
-      score <- input$answer*2-100
+      score <- transform_slider(input$answer) * 200-100
       if (v$answers[v$question_num] == 0)
         score <- -score
       v$scores[nrow(v$scores),current_question()] <- score
@@ -150,7 +154,8 @@ shinyServer(function(input, output, session) {
 
       par(mai=rep(0.1,4))
       plot(NULL, xlab="", ylab="", xlim=c(0,1), ylim=c(0,1), main="", xaxt="n", yaxt="n", xaxs="i", yaxs="i")
-      w <- input$answer/100
+
+      w <- transform_slider(input$answer)
 
       # background colouring
       x <- seq(0,1,by=0.01)
